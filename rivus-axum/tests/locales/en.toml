@@ -4,3 +4,5 @@
 403 = "Forbidden Access"
 404 = "Not Found"
 500 = "Internal Server Error"
+901 = "Missing Parameter"
+902 = "Illegal Parameter"

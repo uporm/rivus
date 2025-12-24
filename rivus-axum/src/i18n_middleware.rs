@@ -13,20 +13,37 @@ pub async fn handle_i18n(req: Request, next: Next) -> Response {
 }
 
 fn resolve_language(req: &Request) -> String {
-    req.headers()
+    let default_lang = "zh";
+
+    let Some(store) = I18N_STORE.get() else {
+        return default_lang.to_string();
+    };
+
+    let Some(header) = req
+        .headers()
         .get("accept-language")
         .and_then(|v| v.to_str().ok())
-        .into_iter()
-        .flat_map(|v| v.split(','))
-        .map(|s| s.split(';').next().unwrap_or(s).trim())
-        .map(|s| s.to_lowercase())
-        .find(|lang| is_lang_supported(lang))
-        .unwrap_or_else(|| "zh".to_string())
-}
+    else {
+        return default_lang.to_string();
+    };
 
-fn is_lang_supported(lang: &str) -> bool {
-    I18N_STORE
-        .get()
-        .map(|store| store.contains_key(lang))
-        .unwrap_or(false)
+    for raw in header.split(',') {
+        let tag = raw.split(';').next().unwrap_or(raw).trim().to_lowercase();
+
+        if tag.is_empty() {
+            continue;
+        }
+
+        if store.contains_key(&tag) {
+            return tag;
+        }
+
+        if let Some(primary) = tag.split('-').next()
+            && store.contains_key(primary)
+        {
+            return primary.to_string();
+        }
+    }
+
+    default_lang.to_string()
 }

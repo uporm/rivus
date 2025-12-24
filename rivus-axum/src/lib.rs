@@ -5,11 +5,11 @@ use axum::{extract::Request, middleware::Next, response::Response};
 use std::future::Future;
 use tokio::signal;
 
-mod i18n_middleware;
-pub mod result;
-pub mod i18n;
-pub mod r;
 pub mod code;
+pub mod err;
+pub mod i18n;
+mod i18n_middleware;
+pub mod r;
 
 pub struct WebServer {
     router: Router,
@@ -39,6 +39,10 @@ impl WebServer {
     {
         self.router = self.router.layer(middleware::from_fn(f));
         self
+    }
+
+    pub fn into_router(self) -> Router {
+        self.router
     }
 
     pub async fn run(self) -> anyhow::Result<()> {

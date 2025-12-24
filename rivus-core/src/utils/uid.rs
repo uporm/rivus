@@ -35,9 +35,9 @@ pub fn int_to_str(n: u64) -> String {
 
 fn char_to_u8(c: char) -> anyhow::Result<u8> {
     match c {
-        'A'..='Z' => Ok((c as u8 - b'A') ),
-        'a'..='z' => Ok((c as u8 - b'a' + 26)),
-        '0'..='9' => Ok((c as u8 - b'0' + 52)),
+        'A'..='Z' => Ok(c as u8 - b'A'),
+        'a'..='z' => Ok(c as u8 - b'a' + 26),
+        '0'..='9' => Ok(c as u8 - b'0' + 52),
         '+' => Ok(62),
         '/' => Ok(63),
         _ => Err(anyhow!("不支持的字符")),
@@ -83,7 +83,12 @@ mod tests {
         let api_key = generate_api_key(key_length);
         println!("Generated API Key: {}", api_key);
         // 验证生成的 API Key 长度是否符合预期
-        assert_eq!(api_key.len(), key_length, "生成的 API Key 长度应为 {}", key_length);
+        assert_eq!(
+            api_key.len(),
+            key_length,
+            "生成的 API Key 长度应为 {}",
+            key_length
+        );
     }
 
     #[test]

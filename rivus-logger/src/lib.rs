@@ -176,7 +176,6 @@ impl Logger {
         }
     }
 
-
     /// 启用控制台输出
     pub fn to_console(mut self) -> Self {
         if !self.outputs.contains(&LogOutput::Console) {
@@ -237,7 +236,7 @@ fn init(log: Logger) {
         let console_layer = create_base_layer(time_format).with_writer(stdout).boxed();
         layers.push(console_layer);
     }
-    
+
     for output_target in log.outputs {
         match output_target {
             LogOutput::Console => {
@@ -268,10 +267,8 @@ fn init(log: Logger) {
         }
 
         // 存储 guards 以防止过早释放
-        if !guards.is_empty() {
-            if LOG_GUARD.set(guards).is_err() {
-                eprintln!("[错误] 无法设置 LOG_GUARD - 日志可能无法正常工作。");
-            }
+        if !guards.is_empty() && LOG_GUARD.set(guards).is_err() {
+            eprintln!("[错误] 无法设置 LOG_GUARD - 日志可能无法正常工作。");
         }
     } else {
         // 如果没有配置有效输出，回退到控制台

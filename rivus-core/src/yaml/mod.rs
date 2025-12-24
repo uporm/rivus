@@ -1,12 +1,12 @@
 //! YAML 配置加载器，支持环境变量替换
 
+use dotenvy::dotenv;
+use regex::Regex;
 use serde::de::DeserializeOwned;
 use std::env;
 use std::fs;
 use std::path::Path;
 use thiserror::Error;
-use regex::Regex;
-use dotenvy::dotenv;
 
 /// YAML 加载器错误
 #[derive(Debug, Error)]
@@ -20,6 +20,7 @@ pub enum YamlLoaderError {
 }
 
 /// 替换 YAML 中的环境变量占位符
+#[allow(dead_code)]
 fn replace_vars(yaml_content: &str) -> Result<String, YamlLoaderError> {
     let _ = dotenv();
 
@@ -39,6 +40,7 @@ fn replace_vars(yaml_content: &str) -> Result<String, YamlLoaderError> {
 }
 
 /// 从文件加载 YAML 配置
+#[allow(dead_code)]
 pub fn load_from_file<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<T, YamlLoaderError> {
     let content = fs::read_to_string(path)?;
     let replaced = replace_vars(&content)?;
@@ -47,6 +49,7 @@ pub fn load_from_file<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<T,
 }
 
 /// 从字符串加载 YAML 配置
+#[allow(dead_code)]
 pub fn load_from_str<T: DeserializeOwned>(yaml_content: &str) -> Result<T, YamlLoaderError> {
     let replaced = replace_vars(yaml_content)?;
     let data = serde_yaml::from_str(&replaced)?;
@@ -58,6 +61,6 @@ pub fn load_from_str<T: DeserializeOwned>(yaml_content: &str) -> Result<T, YamlL
 macro_rules! include_yaml {
     // 支持指定类型
     ($path:expr, $t:ty) => {
-        $crate::load_from_str::<$t>(include_str!($path))
+        $crate::yaml::load_from_str::<$t>(include_str!($path))
     };
 }
