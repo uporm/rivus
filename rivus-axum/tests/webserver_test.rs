@@ -3,11 +3,11 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::routing::{get, post};
-use rivus_axum::{r, WebServer};
 use rivus_axum::code::Code;
 use rivus_axum::err::Err;
 use rivus_axum::i18n;
 use rivus_axum::r::R;
+use rivus_axum::{WebServer, r};
 use tower::ServiceExt;
 use validator::Validate;
 
@@ -37,10 +37,15 @@ async fn ping() -> R<Ping> {
 async fn echo(Json(json): Json<EchoJson>) -> R<Option<Echo>> {
     r!(json.validate());
 
-    R::ok(Some(Echo {
+    // R::ok(Echo {
+    //     name: json.name.unwrap(),
+    //     age: json.age.unwrap(),
+    // });
+
+    R::from(Ok(Some(Echo {
         name: json.name.unwrap(),
         age: json.age.unwrap(),
-    }))
+    })))
 }
 
 async fn bad_request() -> R<()> {

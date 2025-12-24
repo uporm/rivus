@@ -23,7 +23,6 @@ impl<T: Serialize> R<T> {
     }
 }
 
-
 impl<T: Serialize + Default> R<T> {
     pub fn err(err: Err) -> Self {
         let (code, message) = map_err(err);
@@ -31,6 +30,13 @@ impl<T: Serialize + Default> R<T> {
             code,
             message,
             data: T::default(),
+        }
+    }
+
+    pub fn from(result: Result<T, Err>) -> Self {
+        match result {
+            Ok(data) => Self::ok(data),
+            Err(err) => Self::err(err),
         }
     }
 }
@@ -43,7 +49,6 @@ impl R<()> {
         }
     }
 }
-
 
 impl<T: Serialize> IntoResponse for R<T> {
     fn into_response(self) -> axum::response::Response {
