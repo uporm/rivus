@@ -1,0 +1,6 @@
+200 = "Ok"
+400 = "Request Parameter Error"
+401 = "Unauthorized"
+403 = "Forbidden Access"
+404 = "Not Found"
+500 = "Internal Server Error"

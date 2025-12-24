@@ -1,0 +1,16 @@
+[package]
+name = "rivus-core"
+version = "0.2.0"
+edition = "2024"
+description = "统一响应、分页与错误码封装"
+license = "Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+regex = { workspace = true }
+serde_yaml = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+rand = { workspace = true }
+dotenvy = { workspace = true }
