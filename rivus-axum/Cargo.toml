@@ -15,4 +15,3 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 validator = { workspace = true }
 toml = { workspace = true }
-reqwest = "0.13.0-rc.1"
