@@ -1,30 +1,38 @@
-#![allow(unused)]
 use anyhow::anyhow;
 use rand::Rng;
 
+/// Convert a custom Base64-like string to u64.
+///
+/// This uses a Little-Endian encoding scheme: the first character represents
+/// the least significant 6 bits.
+///
+/// Max supported length is 10 characters (60 bits).
 pub fn str_to_int(s: &str) -> anyhow::Result<u64> {
     if s.len() > 10 {
-        // 修改为10，因为10*6=60，仍在u64范围内
-        return Err(anyhow!("字符串长度不能超过10个字符"));
+        // 10 chars * 6 bits = 60 bits, fitting safely in u64.
+        return Err(anyhow!("String length cannot exceed 10 characters"));
     }
 
     let mut result: u64 = 0;
     for (i, c) in s.chars().enumerate() {
-        if i * 6 >= 64 {
-            // 添加额外检查，确保不会溢出
-            return Err(anyhow!("位移操作将导致溢出"));
-        }
         let val = char_to_u8(c)?;
         result |= (val as u64) << (i * 6);
     }
     Ok(result)
 }
 
-pub fn int_to_str(n: u64) -> String {
-    let mut result = String::new();
-    let mut n = n;
+/// Convert u64 to a custom Base64-like string.
+///
+/// This produces a Little-Endian string (first char is LSB).
+pub fn int_to_str(mut n: u64) -> String {
+    if n == 0 {
+        return String::new(); // Or maybe "A"? Original code returns "" for 0.
+    }
+
+    let mut result = String::with_capacity(11);
     while n != 0 {
         let val = (n & 0x3F) as u8;
+        // u6_to_char always returns Some for val < 64
         if let Some(c) = u6_to_char(val) {
             result.push(c);
         }
@@ -40,7 +48,7 @@ fn char_to_u8(c: char) -> anyhow::Result<u8> {
         '0'..='9' => Ok(c as u8 - b'0' + 52),
         '+' => Ok(62),
         '/' => Ok(63),
-        _ => Err(anyhow!("不支持的字符")),
+        _ => Err(anyhow!("Unsupported character: {}", c)),
     }
 }
 
@@ -55,19 +63,17 @@ fn u6_to_char(n: u8) -> Option<char> {
     }
 }
 
-// 生成 API Key
-fn generate_api_key(length: usize) -> String {
-    // 定义 API Key 可用的字符集
-    let charset: Vec<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-        .chars()
-        .collect();
+/// Generate a random API Key of specified length.
+///
+/// Uses alphanumeric characters (A-Z, a-z, 0-9).
+pub fn generate_api_key(length: usize) -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let mut rng = rand::rng();
 
-    // 随机选取字符生成 API Key
     (0..length)
         .map(|_| {
-            let idx = rng.random_range(0..charset.len());
-            charset[idx]
+            let idx = rng.random_range(0..CHARSET.len());
+            CHARSET[idx] as char
         })
         .collect()
 }

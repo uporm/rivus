@@ -1,20 +1,19 @@
 [package]
 name = "rivus-axum"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "基于 Axum 的 Web 服务基础"
 license = "Apache-2.0"
+repository = "https://github.com/uporm/rivus"
 
 [dependencies]
-
+ctor = "0.6.3" # 负责自动执行初始化代码
 tokio = { workspace = true }
 axum = { workspace = true }
-tracing = { workspace = true }
+log = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 validator = { workspace = true }
-toml = { workspace = true }
 
 [dev-dependencies]
-tower = "0.5.2"

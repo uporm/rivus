@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
 use thiserror::Error;
 
 /// YAML 加载器错误
@@ -20,11 +21,14 @@ pub enum YamlLoaderError {
 }
 
 /// 替换 YAML 中的环境变量占位符
-#[allow(dead_code)]
 fn replace_vars(yaml_content: &str) -> Result<String, YamlLoaderError> {
+    // 忽略 dotenv 加载错误（例如生产环境可能没有 .env 文件）
     let _ = dotenv();
 
-    let re = Regex::new(r"\$\{([A-Z0-9_]+)(?::([^\}]*))?\}").unwrap();
+    static VAR_REGEX: OnceLock<Regex> = OnceLock::new();
+    let re = VAR_REGEX.get_or_init(|| {
+        Regex::new(r"\$\{([A-Z0-9_]+)(?::([^\}]*))?\}").expect("Invalid regex pattern")
+    });
 
     let result = re.replace_all(yaml_content, |caps: &regex::Captures| {
         let var_name = &caps[1];
@@ -63,4 +67,57 @@ macro_rules! include_yaml {
     ($path:expr, $t:ty) => {
         $crate::yaml::load_from_str::<$t>(include_str!($path))
     };
+}
+
+pub use include_yaml;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Deserialize;
+
+    #[test]
+    fn test_replace_vars_basic() {
+        unsafe {
+            env::set_var("TEST_VAR_BASIC", "basic_value");
+        }
+        let input = "key: ${TEST_VAR_BASIC}";
+        let output = replace_vars(input).unwrap();
+        assert_eq!(output, "key: basic_value");
+    }
+
+    #[test]
+    fn test_replace_vars_default() {
+        let input = "key: ${TEST_VAR_MISSING:default}";
+        let output = replace_vars(input).unwrap();
+        assert_eq!(output, "key: default");
+    }
+
+    #[test]
+    fn test_replace_vars_no_default() {
+        let input = "key: ${TEST_VAR_MISSING_NO_DEFAULT}";
+        let output = replace_vars(input).unwrap();
+        assert_eq!(output, "key: ");
+    }
+
+    #[test]
+    fn test_load_from_str() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct Config {
+            host: String,
+            port: u16,
+        }
+
+        unsafe {
+            env::set_var("APP_HOST", "localhost");
+        }
+        let yaml = r#"
+        host: ${APP_HOST}
+        port: ${APP_PORT:8080}
+        "#;
+
+        let config: Config = load_from_str(yaml).unwrap();
+        assert_eq!(config.host, "localhost");
+        assert_eq!(config.port, 8080);
+    }
 }

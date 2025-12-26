@@ -1,9 +1,11 @@
-use crate::err::Err;
-use crate::{code::Code, i18n, i18n::CURRENT_LANG};
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use serde::Serialize;
+use crate::i18n::i18n::t;
+use crate::i18n::middleware::CURRENT_LANG;
+use crate::resp::code::Code;
+use crate::resp::err::E;
 
 #[derive(Serialize)]
 pub struct R<T: Serialize> {
@@ -24,7 +26,7 @@ impl<T: Serialize> R<T> {
 }
 
 impl<T: Serialize + Default> R<T> {
-    pub fn err(err: Err) -> Self {
+    pub fn err(err: E) -> Self {
         let (code, message) = map_err(err);
         Self {
             code,
@@ -33,7 +35,7 @@ impl<T: Serialize + Default> R<T> {
         }
     }
 
-    pub fn from(result: Result<T, Err>) -> Self {
+    pub fn from(result: Result<T, E>) -> Self {
         match result {
             Ok(data) => Self::ok(data),
             Err(err) => Self::err(err),
@@ -42,7 +44,7 @@ impl<T: Serialize + Default> R<T> {
 }
 
 impl R<()> {
-    pub fn from_unit(result: Result<(), Err>) -> Self {
+    pub fn from_unit(result: Result<(), E>) -> Self {
         match result {
             Ok(_) => Self::ok(()),
             Err(err) => Self::err(err),
@@ -62,23 +64,23 @@ impl<T: Serialize> IntoResponse for R<T> {
     }
 }
 
-fn map_err(err: Err) -> (i32, String) {
+fn map_err(err: E) -> (i32, String) {
     match err {
-        Err::Of(code) => (code, message_of(code)),
-        Err::OfMessage(code, params) => {
+        E::Code(code) => (code, message_of(code)),
+        E::Msg(code, params) => {
             let base = message_of(code);
             let msg = params
                 .iter()
                 .fold(base, |acc, (k, v)| acc.replace(&format!("{{{}}}", k), v));
             (code, msg)
         }
-        Err::System(err) => {
-            tracing::error!("{:?}", err);
+        E::Sys(err) => {
+            log::error!("{:?}", err);
             let code = Code::InternalServerError.as_i32();
             (code, message_of(code))
         }
-        Err::Validate(err) => {
-            tracing::error!("{:?}", err);
+        E::Val(err) => {
+            log::error!("{:?}", err);
             let is_missing = err
                 .field_errors()
                 .values()
@@ -97,9 +99,8 @@ fn message_of(code: i32) -> String {
     let key = code.to_string();
 
     CURRENT_LANG
-        .try_with(|lang| i18n::translate(lang, &key))
+        .try_with(|lang| t(lang, &key, &[]))
         .ok()
-        .flatten()
         .unwrap_or(key)
 }
 
@@ -108,7 +109,7 @@ macro_rules! r {
     ($result:expr) => {
         match $result {
             Ok(value) => value,
-            Err(err) => return $crate::r::R::err(err.into()),
+            Err(err) => return $crate::resp::r::R::err(err.into()),
         }
     };
 }
