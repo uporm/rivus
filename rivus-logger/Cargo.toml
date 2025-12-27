@@ -1,6 +1,6 @@
 [package]
 name = "rivus-logger"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "基于 tracing 的日志与链路追踪封装"
 license = "Apache-2.0"
