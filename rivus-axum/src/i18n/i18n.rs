@@ -19,14 +19,18 @@ pub fn internal_init_i18n(data: I18nMap) {
     let _ = I18N_STORAGE.set(data);
 }
 
+pub fn is_language_supported(lang: &str) -> bool {
+    I18N_STORAGE.get().map(|m| m.contains_key(lang)).unwrap_or(false)
+}
+
 /// 生产级翻译函数
-pub fn t(lang: &str, key: &str, args: &[(&str, &str)]) -> String {
+pub fn t(lang: &str, key: &str, args: &[(String, String)]) -> String {
     let Some(lang_map) = I18N_STORAGE.get().and_then(|m| m.get(lang)) else {
-        return format!("[Missing Lang: {}]", lang);
+        return format!("Missing Language: {}", lang);
     };
 
     let Some(parts) = lang_map.get(key) else {
-        return format!("[Missing Key: {}]", key);
+        return format!("Missing Language Key: {}", key);
     };
 
     // 预分配内存提高性能
@@ -37,7 +41,7 @@ pub fn t(lang: &str, key: &str, args: &[(&str, &str)]) -> String {
             I18nPart::Placeholder(p_name) => {
                 let val = args.iter()
                     .find(|(k, _)| k == p_name)
-                    .map(|(_, v)| *v)
+                    .map(|(_, v)| v.as_str())
                     .unwrap_or("");
                 result.push_str(val);
             }

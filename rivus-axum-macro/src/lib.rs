@@ -25,6 +25,12 @@ pub fn i18n_assets(input: TokenStream) -> TokenStream {
     let full_pattern = format!("{}/{}/*.toml", manifest_dir, dir);
     for entry in glob::glob(&full_pattern).expect("Failed to read glob") {
         let path = entry.expect("Path error");
+        
+        // Skip if it is a directory
+        if path.is_dir() {
+            continue;
+        }
+
         let lang_code = path.file_stem().unwrap().to_str().unwrap().to_string();
 
         // 1. 强制编译器监视文件（解决修改 TOML 不触发重新编译的问题）
@@ -33,7 +39,7 @@ pub fn i18n_assets(input: TokenStream) -> TokenStream {
         tracked_files.push(quote! { const _: &[u8] = include_bytes!(#abs_path_str); });
 
         // 2. 解析 TOML
-        let content = std::fs::read_to_string(&path).expect("Read error");
+        let content = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("Read error for path {:?}: {}", path, e));
         let kv: HashMap<String, String> = toml::from_str(&content).expect("TOML error");
 
         let mut key_inserts = Vec::new();

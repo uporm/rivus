@@ -16,18 +16,18 @@ fn test_i18n_assets_loading() {
     assert_eq!(zh_hello, "你好，世界！");
 
     // Test placeholder translation (English)
-    let en_welcome = t("en", "welcome", &[("name", "Jason")]);
+    let en_welcome = t("en", "welcome", &[("name".to_string(), "Jason".to_string())]);
     assert_eq!(en_welcome, "Welcome, Jason!");
 
     // Test placeholder translation (Chinese)
-    let zh_welcome = t("zh", "welcome", &[("name", "Jason")]);
+    let zh_welcome = t("zh", "welcome", &[("name".to_string(), "Jason".to_string())]);
     assert_eq!(zh_welcome, "欢迎，Jason！");
 
     // Test missing key
     let missing_key = t("en", "non_existent_key", &[]);
-    assert_eq!(missing_key, "[Missing Key: non_existent_key]");
+    assert_eq!(missing_key, "Missing Language Key: non_existent_key");
 
     // Test missing language
     let missing_lang = t("fr", "hello", &[]);
-    assert_eq!(missing_lang, "[Missing Lang: fr]");
+    assert_eq!(missing_lang, "Missing Language: fr");
 }

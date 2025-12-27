@@ -1,17 +1,19 @@
-use axum::Json;
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use serde::Serialize;
 use crate::i18n::i18n::t;
 use crate::i18n::middleware::CURRENT_LANG;
 use crate::resp::code::Code;
 use crate::resp::err::E;
+use axum::Json;
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use serde::Serialize;
+
+use validator::ValidationErrors;
 
 #[derive(Serialize)]
 pub struct R<T: Serialize> {
     pub code: i32,
     pub message: String,
-    pub data: T,
+    pub data: Option<T>,
 }
 
 impl<T: Serialize> R<T> {
@@ -19,19 +21,17 @@ impl<T: Serialize> R<T> {
         let code = Code::Ok.as_i32();
         Self {
             code,
-            message: message_of(code),
-            data,
+            message: translate(code, &vec![]),
+            data: Some(data),
         }
     }
-}
 
-impl<T: Serialize + Default> R<T> {
     pub fn err(err: E) -> Self {
         let (code, message) = map_err(err);
         Self {
             code,
             message,
-            data: T::default(),
+            data: None,
         }
     }
 
@@ -43,7 +43,24 @@ impl<T: Serialize + Default> R<T> {
     }
 }
 
+
+impl<T: Serialize> From<T> for R<T> {
+    fn from(data: T) -> Self {
+        Self::ok(data)
+    }
+}
+
+impl<T: Serialize> From<E> for R<T> {
+    fn from(err: E) -> Self {
+        Self::err(err)
+    }
+}
+
 impl R<()> {
+    pub fn void() -> Self {
+        Self::ok(())
+    }
+
     pub fn from_unit(result: Result<(), E>) -> Self {
         match result {
             Ok(_) => Self::ok(()),
@@ -64,44 +81,80 @@ impl<T: Serialize> IntoResponse for R<T> {
     }
 }
 
+
 fn map_err(err: E) -> (i32, String) {
     match err {
-        E::Code(code) => (code, message_of(code)),
+        E::Code(code) => (code, translate(code, &vec![])),
         E::Msg(code, params) => {
-            let base = message_of(code);
-            let msg = params
-                .iter()
-                .fold(base, |acc, (k, v)| acc.replace(&format!("{{{}}}", k), v));
+            let msg = translate(code, &params);
             (code, msg)
         }
         E::Sys(err) => {
             log::error!("{:?}", err);
             let code = Code::InternalServerError.as_i32();
-            (code, message_of(code))
+            (code, translate(code, &vec![]))
         }
         E::Val(err) => {
-            log::error!("{:?}", err);
-            let is_missing = err
-                .field_errors()
-                .values()
-                .any(|errs| errs.iter().any(|e| e.code == "required"));
-            let code = if is_missing {
-                Code::MissingParam.as_i32()
-            } else {
-                Code::IllegalParam.as_i32()
-            };
-            (code, message_of(code))
+            log::debug!("{:?}", err);
+            let msg = format_validation_errors(&err);
+            (Code::IllegalParam.as_i32(), msg)
         }
     }
 }
 
-fn message_of(code: i32) -> String {
+fn format_validation_errors(err: &ValidationErrors) -> String {
+    let mut msgs = Vec::new();
+    for (field, errs) in err.field_errors() {
+        for e in errs {
+            let detail = match e.code.as_ref() {
+                "required" => "is required".to_string(),
+                "length" => {
+                    let min = e.params.get("min");
+                    let max = e.params.get("max");
+                    match (min, max) {
+                        (Some(min), Some(max)) => {
+                            format!("length must be between {} and {}", min, max)
+                        }
+                        (Some(min), None) => format!("length must be at least {}", min),
+                        (None, Some(max)) => format!("length must be at most {}", max),
+                        _ => "length is invalid".to_string(),
+                    }
+                }
+                "range" => {
+                    let min = e.params.get("min");
+                    let max = e.params.get("max");
+                    match (min, max) {
+                        (Some(min), Some(max)) => {
+                            format!("must be between {} and {}", min, max)
+                        }
+                        (Some(min), None) => format!("must be at least {}", min),
+                        (None, Some(max)) => format!("must be at most {}", max),
+                        _ => "value is out of range".to_string(),
+                    }
+                }
+                "email" => "must be a valid email".to_string(),
+                _ => e
+                    .message
+                    .clone()
+                    .map(|m| m.to_string())
+                    .unwrap_or_else(|| format!("invalid ({})", e.code)),
+            };
+            msgs.push(format!("{}: {}", field, detail));
+        }
+    }
+    if msgs.is_empty() {
+        translate(Code::IllegalParam.as_i32(), &vec![])
+    } else {
+        msgs.join("; ")
+    }
+}
+
+fn translate(code: i32, params: &Vec<(String, String)>) -> String {
     let key = code.to_string();
 
     CURRENT_LANG
-        .try_with(|lang| t(lang, &key, &[]))
-        .ok()
-        .unwrap_or(key)
+        .try_with(|lang| t(lang, &key, params))
+        .unwrap_or_else(|_| t("zh", &key, params))
 }
 
 #[macro_export]

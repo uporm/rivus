@@ -11,6 +11,7 @@ use crate::i18n::middleware::handle_i18n;
 pub struct WebServer {
     router: Router,
     addr: String,
+    middlewares: Vec<Box<dyn FnOnce(Router) -> Router + Send>>,
 }
 
 impl WebServer {
@@ -18,11 +19,12 @@ impl WebServer {
         Self {
             router: Router::new(),
             addr: addr.into(),
+            middlewares: Vec::new(),
         }
     }
 
     pub fn layer_i18n(mut self) -> Self {
-        self.router = self.router.layer(from_fn(handle_i18n));
+        self.middlewares.push(Box::new(|r| r.layer(from_fn(handle_i18n))));
         self
     }
 
@@ -31,7 +33,7 @@ impl WebServer {
         F: Clone + Send + Sync + 'static + Fn(Request, Next) -> Fut,
         Fut: Future<Output = Response> + Send + 'static,
     {
-        self.router = self.router.layer(middleware::from_fn(f));
+        self.middlewares.push(Box::new(|r| r.layer(middleware::from_fn(f))));
         self
     }
 
@@ -40,10 +42,15 @@ impl WebServer {
         self
     }
 
-    pub async fn start(self) -> anyhow::Result<()> {
+    pub async fn start(mut self) -> anyhow::Result<()> {
         log::info!("🚀 Starting web server at {}", self.addr);
 
+        for m in self.middlewares {
+            self.router = m(self.router);
+        }
+
         let listener = tokio::net::TcpListener::bind(&self.addr).await?;
+
         // 优雅关闭处理
         let server = axum::serve(listener, self.router).with_graceful_shutdown(wait_for_shutdown());
         if let Err(e) = server.await {
@@ -81,5 +88,66 @@ async fn wait_for_shutdown() {
         _ = terminate => {
             log::info!("Received terminate signal, starting graceful shutdown");
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{Router, body::Body, routing::get};
+    use http::Request;
+    use tower::util::ServiceExt; 
+    use crate::i18n::middleware::CURRENT_LANG;
+
+    async fn check_lang() -> String {
+        CURRENT_LANG.try_with(|l| l.clone()).unwrap_or_else(|_| "not set".to_string())
+    }
+
+    #[tokio::test]
+    async fn test_layer_ordering_success() {
+        // Case 2: mount then layer
+        let server = WebServer::new("0.0.0.0:0")
+            .mount(Router::new().route("/", get(check_lang)))
+            .layer_i18n();
+        
+        // Simulate start() logic to apply middlewares
+        let mut router = server.router;
+        for m in server.middlewares {
+            router = m(router);
+        }
+
+        let app = router;
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+        let response = ServiceExt::oneshot(app, req).await.unwrap();
+        
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        
+        // Here it should be set (default "zh-CN")
+        assert_eq!(body_str, "zh-CN");
+    }
+
+    #[tokio::test]
+    async fn test_layer_ordering_deferred() {
+        // Case 1: layer then mount (Used to fail, now should succeed)
+        let server = WebServer::new("0.0.0.0:0")
+            .layer_i18n()
+            .mount(Router::new().route("/", get(check_lang)));
+        
+        // Simulate start() logic
+        let mut router = server.router;
+        for m in server.middlewares {
+            router = m(router);
+        }
+
+        let app = router;
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+        let response = ServiceExt::oneshot(app, req).await.unwrap();
+        
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        
+        // Now it should be set because layers are applied at the end
+        assert_eq!(body_str, "zh-CN");
     }
 }

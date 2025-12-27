@@ -953,21 +953,23 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "rivus-axum"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "axum",
  "ctor",
+ "http",
  "log",
  "serde",
  "thiserror",
  "tokio",
+ "tower",
  "validator",
 ]
 
 [[package]]
 name = "rivus-axum-macro"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ctor",
  "glob",
@@ -980,7 +982,7 @@ dependencies = [
 
 [[package]]
 name = "rivus-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -994,7 +996,7 @@ dependencies = [
 
 [[package]]
 name = "rivus-logger"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "log",
  "tracing",

@@ -41,11 +41,8 @@ pub enum Code {
     // 缺少必要请求头：请求中缺少必要头部字段
     MissingHeader = 900,
 
-    //  缺少必要参数：请求中缺少必要参数
-    MissingParam = 901,
-
     // 参数不合法：客户端请求包含非法参数
-    IllegalParam = 902,
+    IllegalParam = 901,
 }
 
 impl Code {

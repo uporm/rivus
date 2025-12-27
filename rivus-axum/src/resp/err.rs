@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt;
 use thiserror::Error;
 use validator::ValidationErrors;
@@ -8,7 +7,7 @@ pub enum E {
     #[error("{0}")]
     Code(i32),
     #[error("{0}")]
-    Msg(i32, HashMap<&'static str, String>),
+    Msg(i32, Vec<(String, String)>),
     #[error("{0}")]
     Sys(#[from] anyhow::Error),
     #[error("{0}")]
