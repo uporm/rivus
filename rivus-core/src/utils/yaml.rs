@@ -7,27 +7,16 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
-use thiserror::Error;
-
-/// YAML 加载器错误
-#[derive(Debug, Error)]
-pub enum YamlLoaderError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("YAML parse error: {0}")]
-    YamlParse(#[from] serde_yaml::Error),
-    #[error("Invalid variable format: {0}")]
-    InvalidVariable(String),
-}
+use crate::error::Error;
 
 /// 替换 YAML 中的环境变量占位符
-fn replace_vars(yaml_content: &str) -> Result<String, YamlLoaderError> {
+fn replace_vars(yaml_content: &str) -> Result<String, Error> {
     // 忽略 dotenv 加载错误（例如生产环境可能没有 .env 文件）
     let _ = dotenv();
 
     static VAR_REGEX: OnceLock<Regex> = OnceLock::new();
     let re = VAR_REGEX.get_or_init(|| {
-        Regex::new(r"\$\{([A-Z0-9_]+)(?::([^\}]*))?\}").expect("Invalid regex pattern")
+        Regex::new(r"\$\{([a-zA-Z0-9_]+)(?::([^\}]*))?\}").expect("Invalid regex pattern")
     });
 
     let result = re.replace_all(yaml_content, |caps: &regex::Captures| {
@@ -45,7 +34,7 @@ fn replace_vars(yaml_content: &str) -> Result<String, YamlLoaderError> {
 
 /// 从文件加载 YAML 配置
 #[allow(dead_code)]
-pub fn load_from_file<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<T, YamlLoaderError> {
+pub fn load_from_file<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<T, Error> {
     let content = fs::read_to_string(path)?;
     let replaced = replace_vars(&content)?;
     let data = serde_yaml::from_str(&replaced)?;
@@ -54,7 +43,7 @@ pub fn load_from_file<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<T,
 
 /// 从字符串加载 YAML 配置
 #[allow(dead_code)]
-pub fn load_from_str<T: DeserializeOwned>(yaml_content: &str) -> Result<T, YamlLoaderError> {
+pub fn load_from_str<T: DeserializeOwned>(yaml_content: &str) -> Result<T, Error> {
     let replaced = replace_vars(yaml_content)?;
     let data = serde_yaml::from_str(&replaced)?;
     Ok(data)
@@ -65,7 +54,7 @@ pub fn load_from_str<T: DeserializeOwned>(yaml_content: &str) -> Result<T, YamlL
 macro_rules! include_yaml {
     // 支持指定类型
     ($path:expr, $t:ty) => {
-        $crate::yaml::load_from_str::<$t>(include_str!($path))
+        $crate::utils::yaml::load_from_str::<$t>(include_str!($path))
     };
 }
 
@@ -98,6 +87,16 @@ mod tests {
         let input = "key: ${TEST_VAR_MISSING_NO_DEFAULT}";
         let output = replace_vars(input).unwrap();
         assert_eq!(output, "key: ");
+    }
+
+    #[test]
+    fn test_replace_vars_lowercase() {
+        unsafe {
+            env::set_var("test_var_lower", "lower_value");
+        }
+        let input = "key: ${test_var_lower}";
+        let output = replace_vars(input).unwrap();
+        assert_eq!(output, "key: lower_value");
     }
 
     #[test]

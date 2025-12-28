@@ -8,10 +8,8 @@ repository = "https://github.com/uporm/rivus"
 
 [dependencies]
 serde = { workspace = true }
-thiserror = { workspace = true }
 regex = { workspace = true }
 serde_yaml = { workspace = true }
 chrono = { workspace = true }
-anyhow = { workspace = true }
 rand = { workspace = true }
 dotenvy = { workspace = true }

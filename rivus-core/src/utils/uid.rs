@@ -1,5 +1,5 @@
-use anyhow::anyhow;
 use rand::Rng;
+use crate::error::Error;
 
 /// Convert a custom Base64-like string to u64.
 ///
@@ -7,10 +7,10 @@ use rand::Rng;
 /// the least significant 6 bits.
 ///
 /// Max supported length is 10 characters (60 bits).
-pub fn str_to_int(s: &str) -> anyhow::Result<u64> {
+pub fn str_to_int(s: &str) -> Result<u64, Error> {
     if s.len() > 10 {
         // 10 chars * 6 bits = 60 bits, fitting safely in u64.
-        return Err(anyhow!("String length cannot exceed 10 characters"));
+        return Err(Error::new(500).with_message("String length cannot exceed 10 characters"));
     }
 
     let mut result: u64 = 0;
@@ -41,14 +41,14 @@ pub fn int_to_str(mut n: u64) -> String {
     result
 }
 
-fn char_to_u8(c: char) -> anyhow::Result<u8> {
+fn char_to_u8(c: char) -> Result<u8, Error> {
     match c {
         'A'..='Z' => Ok(c as u8 - b'A'),
         'a'..='z' => Ok(c as u8 - b'a' + 26),
         '0'..='9' => Ok(c as u8 - b'0' + 52),
         '+' => Ok(62),
         '/' => Ok(63),
-        _ => Err(anyhow!("Unsupported character: {}", c)),
+        _ => Err(Error::new(500).with_message(format!("Unsupported character: {}", c))),
     }
 }
 
